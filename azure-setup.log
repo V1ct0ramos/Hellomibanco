@@ -1,0 +1,29 @@
+==========================================
+Creando infraestructura de Azure
+==========================================
+Verificando login en Azure...
+✓ Suscripción activa: adab345e-de53-4d8d-a3a9-9caae83da636
+
+[1/4] Creando Resource Group...
+Location    Name
+----------  ---------------------
+eastus      rg-mibanco-helloworld
+✓ Resource Group creado: rg-mibanco-helloworld
+
+[2/4] Creando Azure Container Registry...
+NAME                  RESOURCE GROUP         LOCATION    SKU    LOGIN SERVER                     CREATION DATE         ADMIN ENABLED
+--------------------  ---------------------  ----------  -----  -------------------------------  --------------------  ---------------
+acrmibancohelloworld  rg-mibanco-helloworld  eastus      Basic  acrmibancohelloworld.azurecr.io  2026-01-31T17:44:38Z  True
+✓ ACR creado: acrmibancohelloworld
+  ACR Login Server: acrmibancohelloworld.azurecr.io
+  ACR Username: acrmibancohelloworld
+
+[3/4] Creando Azure Kubernetes Service (esto puede tardar varios minutos)...
+WARNING: docker_bridge_cidr is not a known attribute of class <class 'azure.mgmt.containerservice.models._models_py3.ContainerServiceNetworkProfile'> and will be ignored
+ERROR: (MissingSubscriptionRegistration) The subscription is not registered to use namespace 'microsoft.insights'. See https://aka.ms/rps-not-found for how to register subscriptions.
+Code: MissingSubscriptionRegistration
+Message: The subscription is not registered to use namespace 'microsoft.insights'. See https://aka.ms/rps-not-found for how to register subscriptions.
+Exception Details:	(MissingSubscriptionRegistration) The subscription is not registered to use namespace 'microsoft.insights'. See https://aka.ms/rps-not-found for how to register subscriptions.
+	Code: MissingSubscriptionRegistration
+	Message: The subscription is not registered to use namespace 'microsoft.insights'. See https://aka.ms/rps-not-found for how to register subscriptions.
+	Target: microsoft.insights
