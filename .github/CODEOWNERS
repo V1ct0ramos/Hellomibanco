@@ -1,0 +1,18 @@
+# CODEOWNERS - Automatic PR reviewer assignment
+# Docs: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner for everything in the repo
+# This user will be automatically requested for review on all PRs
+* @JeanSimon20
+
+# Specific ownership by file type
+*.java @JeanSimon20
+*.yml @JeanSimon20
+*.yaml @JeanSimon20
+*.xml @JeanSimon20
+
+# Infrastructure and deployment files
+/k8s/* @JeanSimon20
+/azure/* @JeanSimon20
+/.github/workflows/* @JeanSimon20
+/Dockerfile @JeanSimon20

@@ -12,7 +12,6 @@ public class HelloController {
     public ResponseEntity<String> hello() {
         return new ResponseEntity<>("Hola Mibanco", HttpStatus.OK);
     }
-
     @GetMapping("/health")
     public ResponseEntity<String> health() {
         return new ResponseEntity<>("OK", HttpStatus.OK);
