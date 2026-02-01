@@ -1,0 +1,212 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  JAVA_VERSION: '17'
+  MAVEN_VERSION: '3.9.6'
+  IMAGE_NAME: helloworld-mibanco
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ env.JAVA_VERSION }}
+        distribution: 'temurin'
+        cache: 'maven'
+
+    - name: Build with Maven
+      run: mvn clean package -DskipTests
+
+    - name: Run tests
+      run: mvn test
+
+    - name: Generate version
+      id: version
+      run: |
+        SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+        VERSION="${{ github.run_number }}-${SHORT_SHA}"
+        echo "version=${VERSION}" >> $GITHUB_OUTPUT
+        echo "Generated version: ${VERSION}"
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-jar
+        path: target/*.jar
+        retention-days: 1
+
+  build-docker-image:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    
+    outputs:
+      image-tag: ${{ needs.build-and-test.outputs.version }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Login to Azure Container Registry
+      uses: azure/docker-login@v1
+      with:
+        login-server: ${{ secrets.ACR_LOGIN_SERVER }}
+        username: ${{ secrets.ACR_USERNAME }}
+        password: ${{ secrets.ACR_PASSWORD }}
+
+    - name: Build Docker image
+      run: |
+        IMAGE_TAG="${{ needs.build-and-test.outputs.version }}"
+        docker build -t ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG} .
+        docker tag ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG} \
+                   ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:latest
+        echo "Built image with tag: ${IMAGE_TAG}"
+
+    - name: Trivy Container Image Scan
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${{ needs.build-and-test.outputs.version }}
+        format: 'sarif'
+        output: 'trivy-image-results.sarif'
+        severity: 'CRITICAL,HIGH'
+        exit-code: '0'
+
+    - name: Upload Trivy Image Results to GitHub Security
+      if: always()
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: 'trivy-image-results.sarif'
+        category: 'trivy-container-image'
+
+    - name: Push image to ACR
+      run: |
+        IMAGE_TAG="${{ needs.build-and-test.outputs.version }}"
+        docker push ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG}
+        docker push ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:latest
+        echo "✓ Pushed image with tag: ${IMAGE_TAG}"
+        echo "✓ Pushed image with tag: latest"
+
+  deploy-to-aks:
+    name: Deploy to AKS
+    runs-on: ubuntu-latest
+    needs: [build-and-test, build-docker-image]
+    environment:
+      name: production
+      url: http://${{ steps.get-ingress-ip.outputs.ip }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Set AKS context
+      uses: azure/aks-set-context@v3
+      with:
+        resource-group: ${{ secrets.AKS_RESOURCE_GROUP }}
+        cluster-name: ${{ secrets.AKS_CLUSTER_NAME }}
+
+    - name: Deploy to AKS
+      run: |
+        IMAGE_TAG="${{ needs.build-and-test.outputs.version }}"
+        ACR_NAME=$(echo ${{ secrets.ACR_LOGIN_SERVER }} | cut -d'.' -f1)
+        
+        # Replace placeholders in deployment manifest
+        sed -i "s|\${ACR_NAME}|${ACR_NAME}|g" k8s/deployment.yml
+        sed -i "s|\${IMAGE_TAG}|${IMAGE_TAG}|g" k8s/deployment.yml
+        
+        # Apply Kubernetes manifests
+        kubectl apply -f k8s/deployment.yml
+        kubectl apply -f k8s/service.yml
+        kubectl apply -f k8s/hpa.yml
+        kubectl apply -f k8s/ingress.yml
+        
+        echo "✓ Manifests applied successfully"
+
+    - name: Wait for deployment
+      run: |
+        echo "Waiting for deployment to be ready..."
+        kubectl rollout status deployment/helloworld-mibanco --timeout=5m
+        echo "✓ Deployment ready"
+
+    - name: Get Ingress IP
+      id: get-ingress-ip
+      run: |
+        echo "Waiting for Ingress IP..."
+        for i in {1..30}; do
+          INGRESS_IP=$(kubectl get ingress helloworld-ingress -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          if [ ! -z "$INGRESS_IP" ]; then
+            echo "ip=${INGRESS_IP}" >> $GITHUB_OUTPUT
+            echo "✓ Ingress IP: ${INGRESS_IP}"
+            break
+          fi
+          echo "Waiting for IP... (attempt $i/30)"
+          sleep 10
+        done
+
+    - name: Verify deployment
+      run: |
+        INGRESS_IP="${{ steps.get-ingress-ip.outputs.ip }}"
+        if [ -z "$INGRESS_IP" ]; then
+          echo "⚠ Warning: Ingress IP not available yet"
+          exit 0
+        fi
+        
+        echo "Testing application at http://${INGRESS_IP}/"
+        for i in {1..10}; do
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" http://${INGRESS_IP}/ || echo "000")
+          if [ "$RESPONSE" == "200" ]; then
+            echo "✓ Application is responding correctly (HTTP 200)"
+            curl -s http://${INGRESS_IP}/
+            exit 0
+          fi
+          echo "Waiting for application... (attempt $i/10, status: $RESPONSE)"
+          sleep 10
+        done
+        
+        echo "⚠ Warning: Application not responding yet, but deployment succeeded"
+
+    - name: Display deployment info
+      if: always()
+      run: |
+        echo ""
+        echo "=========================================="
+        echo "Deployment Summary"
+        echo "=========================================="
+        echo "Image Tag: ${{ needs.build-and-test.outputs.version }}"
+        echo "Ingress IP: ${{ steps.get-ingress-ip.outputs.ip }}"
+        echo ""
+        echo "Pods:"
+        kubectl get pods -l app=helloworld-mibanco
+        echo ""
+        echo "Service:"
+        kubectl get svc helloworld-mibanco
+        echo ""
+        echo "Ingress:"
+        kubectl get ingress helloworld-ingress
+        echo ""
+        echo "HPA:"
+        kubectl get hpa helloworld-hpa
+        echo ""
+        echo "=========================================="
+        echo "Test application:"
+        echo "curl http://${{ steps.get-ingress-ip.outputs.ip }}/"
+        echo "=========================================="
