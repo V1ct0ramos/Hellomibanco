@@ -155,7 +155,7 @@ jobs:
       run: |
         echo "Waiting for Ingress IP..."
         for i in {1..30}; do
-          INGRESS_IP=$(kubectl get ingress helloworld-ingress -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          INGRESS_IP=$(kubectl get ingress helloworld-mibanco-ingress -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
           if [ ! -z "$INGRESS_IP" ]; then
             echo "ip=${INGRESS_IP}" >> $GITHUB_OUTPUT
             echo "✓ Ingress IP: ${INGRESS_IP}"
@@ -204,7 +204,7 @@ jobs:
         kubectl get svc helloworld-mibanco
         echo ""
         echo "Ingress:"
-        kubectl get ingress helloworld-ingress
+        kubectl get ingress helloworld-mibanco-ingress
         echo ""
         echo "HPA:"
         kubectl get hpa helloworld-hpa
