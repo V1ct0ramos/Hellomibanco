@@ -201,13 +201,13 @@ jobs:
         kubectl get pods -l app=helloworld-mibanco
         echo ""
         echo "Service:"
-        kubectl get svc helloworld-mibanco
+        kubectl get svc helloworld-mibanco-service
         echo ""
         echo "Ingress:"
         kubectl get ingress helloworld-mibanco-ingress
         echo ""
         echo "HPA:"
-        kubectl get hpa helloworld-hpa
+        kubectl get hpa helloworld-mibanco-hpa
         echo ""
         echo "=========================================="
         echo "Test application:"
