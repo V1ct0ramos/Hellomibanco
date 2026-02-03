@@ -194,7 +194,7 @@ helloworld/
 │   └── ingress.yml             # NGINX Ingress
 ├── azure/
 │   ├── setup-infrastructure.sh # Crear recursos Azure
-│   ├── cleanup-infrastructure.sh # Eliminar recursos Azure
+│   ├── cleanup-infrastructure.sh # Eliminando recursos Azure
 │   └── README.md
 ├── .github/
 │   └── workflows/
