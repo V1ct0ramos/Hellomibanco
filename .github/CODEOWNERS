@@ -2,17 +2,16 @@
 # Docs: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
 # Default owner for everything in the repo
-# This user will be automatically requested for review on all PRs
-* @JeanSimon20
+* @ramosmvixtor-dot
 
 # Specific ownership by file type
-*.java @JeanSimon20
-*.yml @JeanSimon20
-*.yaml @JeanSimon20
-*.xml @JeanSimon20
+*.java @ramosmvixtor-dot
+*.yml @ramosmvixtor-dot
+*.yaml @ramosmvixtor-dot
+*.xml @ramosmvixtor-dot
 
 # Infrastructure and deployment files
-/k8s/* @JeanSimon20
-/azure/* @JeanSimon20
-/.github/workflows/* @JeanSimon20
-/Dockerfile @JeanSimon20
+/k8s/* @ramosmvixtor-dot
+/azure/* @ramosmvixtor-dot
+/.github/workflows/* @ramosmvixtor-dot
+/Dockerfile @ramosmvixtor-dot
